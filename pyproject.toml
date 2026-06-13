@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kuhn-poker-head-to-head"
+version = "0.1.0"
+description = "Head-to-head Kuhn poker comparison of Deep CFR, DREAM, and ESCHER thesis entrants."
+requires-python = ">=3.10"
+dependencies = [
+  "matplotlib",
+  "numpy",
+  "pandas",
+  "scipy",
+  "torch",
+  "tensorflow",
+  "open_spiel",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["kuhn_head_to_head*"]
+
