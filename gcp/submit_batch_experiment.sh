@@ -8,13 +8,18 @@ set -euo pipefail
 #   REGION
 #   BUCKET
 #   SA_EMAIL
-#   SOURCE_REPO_URL
+#   SOURCE_REPO_URL              head-to-head repo URL
 #
 # Optional environment variables:
-#   SOURCE_REF                  default: main
-#   WORKSPACE_SUBDIR            default: .
-#   HEAD_TO_HEAD_SUBDIR         default: kuhn_poker_head_to_head
-#   BOOT_DISK_GB                default: 100
+#   SOURCE_REF                   default: main
+#   DEEP_CFR_REPO_URL            default: lawrencewlcknight Kuhn Deep CFR repo
+#   DREAM_REPO_URL               default: lawrencewlcknight Kuhn DREAM repo
+#   ESCHER_REPO_URL              default: lawrencewlcknight Kuhn ESCHER repo
+#   DEEP_CFR_REF                 default: SOURCE_REF
+#   DREAM_REF                    default: SOURCE_REF
+#   ESCHER_REF                   default: SOURCE_REF
+#   HEAD_TO_HEAD_SUBDIR          default: kuhn_poker_head_to_head
+#   BOOT_DISK_GB                 default: 100
 #
 # Usage:
 #   ./gcp/submit_batch_experiment.sh JOB_NAME "PYTHON_COMMAND" MACHINE_TYPE MAX_RUN_SECONDS CPU_MILLI MEMORY_MIB
@@ -33,7 +38,12 @@ MEMORY_MIB="${6:-32000}"
 : "${SOURCE_REPO_URL:?Set SOURCE_REPO_URL first}"
 
 SOURCE_REF="${SOURCE_REF:-main}"
-WORKSPACE_SUBDIR="${WORKSPACE_SUBDIR:-.}"
+DEEP_CFR_REPO_URL="${DEEP_CFR_REPO_URL:-https://github.com/lawrencewlcknight/kuhn-poker-deep-cfr-experiments}"
+DREAM_REPO_URL="${DREAM_REPO_URL:-https://github.com/lawrencewlcknight/kuhn-poker-dream-experiments}"
+ESCHER_REPO_URL="${ESCHER_REPO_URL:-https://github.com/lawrencewlcknight/kuhn-poker-escher-experiments}"
+DEEP_CFR_REF="${DEEP_CFR_REF:-$SOURCE_REF}"
+DREAM_REF="${DREAM_REF:-$SOURCE_REF}"
+ESCHER_REF="${ESCHER_REF:-$SOURCE_REF}"
 HEAD_TO_HEAD_SUBDIR="${HEAD_TO_HEAD_SUBDIR:-kuhn_poker_head_to_head}"
 BOOT_DISK_GB="${BOOT_DISK_GB:-100}"
 
@@ -49,7 +59,12 @@ export BUCKET
 export SA_EMAIL
 export SOURCE_REPO_URL
 export SOURCE_REF
-export WORKSPACE_SUBDIR
+export DEEP_CFR_REPO_URL
+export DREAM_REPO_URL
+export ESCHER_REPO_URL
+export DEEP_CFR_REF
+export DREAM_REF
+export ESCHER_REF
 export HEAD_TO_HEAD_SUBDIR
 export BOOT_DISK_GB
 export JOB_JSON
@@ -69,7 +84,12 @@ bucket = os.environ["BUCKET"]
 service_account = os.environ["SA_EMAIL"]
 source_repo_url = os.environ["SOURCE_REPO_URL"]
 source_ref = os.environ["SOURCE_REF"]
-workspace_subdir = os.environ["WORKSPACE_SUBDIR"]
+deep_cfr_repo_url = os.environ["DEEP_CFR_REPO_URL"]
+dream_repo_url = os.environ["DREAM_REPO_URL"]
+escher_repo_url = os.environ["ESCHER_REPO_URL"]
+deep_cfr_ref = os.environ["DEEP_CFR_REF"]
+dream_ref = os.environ["DREAM_REF"]
+escher_ref = os.environ["ESCHER_REF"]
 head_to_head_subdir = os.environ["HEAD_TO_HEAD_SUBDIR"]
 boot_disk_gb = int(os.environ["BOOT_DISK_GB"])
 
@@ -95,11 +115,19 @@ $SUDO apt-get update
 $SUDO apt-get install -y git python3-pip python3-dev python3-venv rsync time
 
 WORKDIR=/workspace
-mkdir -p "$WORKDIR"
-cd "$WORKDIR"
+WORKSPACE_ROOT="$WORKDIR/deep_cfr_v3"
+mkdir -p "$WORKSPACE_ROOT"
+cd "$WORKSPACE_ROOT"
 
-git clone --depth 1 --branch "{source_ref}" "{source_repo_url}" source
-cd "source/{workspace_subdir}/{head_to_head_subdir}"
+git clone --depth 1 --branch "{source_ref}" "{source_repo_url}" "{head_to_head_subdir}"
+mkdir -p kuhn_poker_deep_cfr kuhn_poker_dream kuhn_poker_escher
+git clone --depth 1 --branch "{deep_cfr_ref}" "{deep_cfr_repo_url}" kuhn_poker_deep_cfr/kuhn-poker-deep-cfr-experiments
+git clone --depth 1 --branch "{dream_ref}" "{dream_repo_url}" kuhn_poker_dream/kuhn-poker-dream-experiments
+git clone --depth 1 --branch "{escher_ref}" "{escher_repo_url}" kuhn_poker_escher/kuhn-poker-escher-experiments
+
+find "$WORKSPACE_ROOT" -maxdepth 3 -type d | sort
+
+cd "{head_to_head_subdir}"
 
 python3 -m venv .venv
 . .venv/bin/activate
@@ -176,4 +204,3 @@ gcloud batch jobs submit "$JOB_NAME" \
   --config "$JOB_JSON"
 
 echo "Submitted job: $JOB_NAME"
-

@@ -19,7 +19,8 @@ VM lifecycle management, so there is no persistent VM to shut down after a
 successful job.
 
 Important: this lightweight repo imports solver and snapshot code from the
-three sibling Kuhn repos. On the Batch VM, preserve the same layout used locally:
+three sibling Kuhn repos. The Batch helper now clones those three repos
+explicitly and builds this layout on the VM:
 
 ```text
 deep_cfr_v3/
@@ -29,11 +30,12 @@ deep_cfr_v3/
   kuhn_poker_head_to_head/
 ```
 
-The recommended cloud setup is to push the whole `deep_cfr_v3` workspace, or an
-equivalent repo containing those four directories, to a Git repository and set
-`SOURCE_REPO_URL` to that repository. If your repos are separate on GitHub,
-adapt the script's clone section to clone each repo into the layout above before
-running the command.
+Set `SOURCE_REPO_URL` to the remote for this head-to-head repository. The three
+algorithm repository URLs default to:
+
+- `https://github.com/lawrencewlcknight/kuhn-poker-deep-cfr-experiments`
+- `https://github.com/lawrencewlcknight/kuhn-poker-dream-experiments`
+- `https://github.com/lawrencewlcknight/kuhn-poker-escher-experiments`
 
 ---
 
@@ -45,8 +47,8 @@ You need:
 - the Google Cloud CLI installed locally;
 - permission to create service accounts, IAM bindings, Batch jobs, and Cloud
   Storage buckets;
-- a Git repository available to the Batch VM that contains the four directories
-  listed above.
+- a Git repository available to the Batch VM for this head-to-head repo;
+- network access from the Batch VM to the three Kuhn algorithm repos.
 
 If the repository is private, adapt the clone step in
 `gcp/submit_batch_experiment.sh` to use an authenticated method such as a deploy
@@ -175,14 +177,19 @@ export BUCKET="gs://${PROJECT_ID}-kuhn-head-to-head-results"
 export SA_EMAIL="kuhn-head-to-head-runner@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # Git repository containing deep_cfr_v3/ or the four Kuhn directories.
-export SOURCE_REPO_URL="https://github.com/your-org/your-deep-cfr-v3-repo.git"
+export SOURCE_REPO_URL="https://github.com/your-org/kuhn-poker-head-to-head.git"
 export SOURCE_REF="main"
 
-# If SOURCE_REPO_URL clones directly to a repo whose root contains
-# kuhn_poker_head_to_head/, leave this as ".".
-# If it clones to a parent directory containing deep_cfr_v3/, set:
-# export WORKSPACE_SUBDIR="deep_cfr_v3"
-export WORKSPACE_SUBDIR="."
+# These are the default values used by gcp/submit_batch_experiment.sh.
+# Set them explicitly if you want the terminal environment to be self-documenting
+# or if you need to point at forks.
+export DEEP_CFR_REPO_URL="https://github.com/lawrencewlcknight/kuhn-poker-deep-cfr-experiments"
+export DREAM_REPO_URL="https://github.com/lawrencewlcknight/kuhn-poker-dream-experiments"
+export ESCHER_REPO_URL="https://github.com/lawrencewlcknight/kuhn-poker-escher-experiments"
+export DEEP_CFR_REF="$SOURCE_REF"
+export DREAM_REF="$SOURCE_REF"
+export ESCHER_REF="$SOURCE_REF"
+
 export HEAD_TO_HEAD_SUBDIR="kuhn_poker_head_to_head"
 
 gcloud config set project "$PROJECT_ID"
@@ -196,7 +203,9 @@ echo "$REGION"
 echo "$BUCKET"
 echo "$SA_EMAIL"
 echo "$SOURCE_REPO_URL"
-echo "$WORKSPACE_SUBDIR"
+echo "$DEEP_CFR_REPO_URL"
+echo "$DREAM_REPO_URL"
+echo "$ESCHER_REPO_URL"
 ```
 
 ---
@@ -410,8 +419,9 @@ new `--config` is supplied.
 
 If the job fails with `ModuleNotFoundError` for `deep_cfr_poker`,
 `dream_poker`, or `escher_poker`, the Batch VM did not clone the sibling repos
-in the expected layout. Check `SOURCE_REPO_URL`, `WORKSPACE_SUBDIR`, and the
-directory tree in `batch_run.log`.
+in the expected layout. Check `SOURCE_REPO_URL`, `DEEP_CFR_REPO_URL`,
+`DREAM_REPO_URL`, `ESCHER_REPO_URL`, the branch refs, and the directory tree in
+`batch_run.log`.
 
 If dependency installation fails, first rerun the smoke job. For private repos,
 confirm that the VM can authenticate to Git before installing Python packages.
@@ -425,4 +435,3 @@ the slowest component of the combined run.
 If outputs are missing from Cloud Storage, inspect `batch_status.json` and
 `batch_run.log`. The helper uploads `outputs/` after the experiment command
 returns, even when the command exits non-zero.
-
