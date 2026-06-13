@@ -426,6 +426,13 @@ still set to the placeholder `https://github.com/your-org/kuhn-poker-head-to-hea
 The helper now defaults to the real head-to-head repo URL and rejects obvious
 placeholder URLs before submitting a job.
 
+If the job fails during virtual environment creation with a message like
+`Unable to symlink ''`, this is a Debian Batch image `venv` issue. The helper
+now creates the environment outside the repo and falls back to
+`virtualenv --always-copy`. Bootstrap failures should upload `bootstrap.log` to
+the job's Cloud Storage output path when the head-to-head repo has already been
+cloned.
+
 If the job fails with `ModuleNotFoundError` for `deep_cfr_poker`,
 `dream_poker`, or `escher_poker`, the Batch VM did not clone the sibling repos
 in the expected layout. Check `SOURCE_REPO_URL`, `DEEP_CFR_REPO_URL`,

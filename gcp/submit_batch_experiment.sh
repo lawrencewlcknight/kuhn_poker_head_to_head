@@ -124,7 +124,30 @@ $SUDO apt-get install -y git python3-pip python3-dev python3-venv rsync time
 
 WORKDIR=/workspace
 WORKSPACE_ROOT="$WORKDIR/deep_cfr_v3"
+VENV_DIR="$WORKDIR/venvs/{job_name}"
+UPLOAD_DEST="{bucket}/{job_name}"
+BOOTSTRAP_LOG="$WORKDIR/{job_name}_bootstrap.log"
 mkdir -p "$WORKSPACE_ROOT"
+mkdir -p "$(dirname "$VENV_DIR")"
+
+exec > >(tee -a "$BOOTSTRAP_LOG") 2>&1
+
+upload_outputs() {{
+  STATUS="$?"
+  set +e
+  if [ -d "$WORKSPACE_ROOT/{head_to_head_subdir}" ]; then
+    cd "$WORKSPACE_ROOT/{head_to_head_subdir}"
+    mkdir -p outputs
+    cp "$BOOTSTRAP_LOG" outputs/bootstrap.log 2>/dev/null || true
+    cp batch_run.log outputs/batch_run.log 2>/dev/null || true
+    printf '{{"job_name": "{job_name}", "exit_status": %s}}\n' "$STATUS" > outputs/batch_status.json
+    gsutil -m cp -r outputs "$UPLOAD_DEST/"
+  fi
+  trap - EXIT
+  exit "$STATUS"
+}}
+trap upload_outputs EXIT
+
 cd "$WORKSPACE_ROOT"
 
 git clone --depth 1 --branch "{source_ref}" "{source_repo_url}" "{head_to_head_subdir}"
@@ -137,8 +160,13 @@ find "$WORKSPACE_ROOT" -maxdepth 3 -type d | sort
 
 cd "{head_to_head_subdir}"
 
-python3 -m venv .venv
-. .venv/bin/activate
+if ! python3 -m venv "$VENV_DIR"; then
+  echo "python3 -m venv failed; falling back to virtualenv --always-copy"
+  rm -rf "$VENV_DIR"
+  python3 -m pip install --user --upgrade virtualenv
+  python3 -m virtualenv --always-copy "$VENV_DIR"
+fi
+. "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -e .
 
@@ -148,15 +176,6 @@ set +e
 /usr/bin/time -v bash -lc '{experiment_command}' 2>&1 | tee batch_run.log
 STATUS="${{PIPESTATUS[0]}}"
 set -e
-
-cat > batch_status.json <<STATUS_JSON
-{{"job_name": "{job_name}", "exit_status": ${{STATUS}}}}
-STATUS_JSON
-
-UPLOAD_DEST="{bucket}/{job_name}"
-mkdir -p outputs
-cp batch_run.log batch_status.json outputs/ || true
-gsutil -m cp -r outputs "$UPLOAD_DEST/"
 
 exit "$STATUS"
 """
