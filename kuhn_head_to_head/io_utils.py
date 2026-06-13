@@ -6,7 +6,7 @@ import csv
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, List, Mapping, Sequence, Union
 
 import numpy as np
 
@@ -41,7 +41,7 @@ def read_json(path: Path) -> Any:
         return json.load(f)
 
 
-def ordered_fieldnames(rows: Sequence[Mapping[str, Any]], preferred: Iterable[str]) -> list[str]:
+def ordered_fieldnames(rows: Sequence[Mapping[str, Any]], preferred: Iterable[str]) -> List[str]:
     fields = []
     for field in preferred:
         if any(field in row for row in rows):
@@ -78,9 +78,8 @@ def write_matrix_csv(
     write_csv(path, rows, [index_name, *[str(label) for label in labels]])
 
 
-def create_run_dir(output_root: Path | str, experiment_name: str) -> Path:
+def create_run_dir(output_root: Union[Path, str], experiment_name: str) -> Path:
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = Path(output_root) / f"{experiment_name}_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
     return run_dir
-

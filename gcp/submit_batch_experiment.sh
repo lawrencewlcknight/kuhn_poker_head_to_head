@@ -8,9 +8,9 @@ set -euo pipefail
 #   REGION
 #   BUCKET
 #   SA_EMAIL
-#   SOURCE_REPO_URL              head-to-head repo URL
 #
 # Optional environment variables:
+#   SOURCE_REPO_URL              default: lawrencewlcknight head-to-head repo
 #   SOURCE_REF                   default: main
 #   DEEP_CFR_REPO_URL            default: lawrencewlcknight Kuhn Deep CFR repo
 #   DREAM_REPO_URL               default: lawrencewlcknight Kuhn DREAM repo
@@ -35,7 +35,15 @@ MEMORY_MIB="${6:-32000}"
 : "${REGION:?Set REGION first}"
 : "${BUCKET:?Set BUCKET first}"
 : "${SA_EMAIL:?Set SA_EMAIL first}"
-: "${SOURCE_REPO_URL:?Set SOURCE_REPO_URL first}"
+
+SOURCE_REPO_URL="${SOURCE_REPO_URL:-https://github.com/lawrencewlcknight/kuhn_poker_head_to_head.git}"
+case "$SOURCE_REPO_URL" in
+  *your-org*|*YOUR_*|*example.com*)
+    echo "ERROR: SOURCE_REPO_URL is still a placeholder: $SOURCE_REPO_URL" >&2
+    echo "Set it to the real head-to-head repo URL before submitting." >&2
+    exit 2
+    ;;
+esac
 
 SOURCE_REF="${SOURCE_REF:-main}"
 DEEP_CFR_REPO_URL="${DEEP_CFR_REPO_URL:-https://github.com/lawrencewlcknight/kuhn-poker-deep-cfr-experiments}"

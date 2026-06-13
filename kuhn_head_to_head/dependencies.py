@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 
 SIBLING_REPO_DIRS = {
@@ -24,12 +24,12 @@ def workspace_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def sibling_paths(root: Path | None = None) -> Dict[str, Path]:
+def sibling_paths(root: Optional[Path] = None) -> Dict[str, Path]:
     root = workspace_root() if root is None else Path(root)
     return {name: (root / rel).resolve() for name, rel in SIBLING_REPO_DIRS.items()}
 
 
-def add_sibling_repos_to_path(root: Path | None = None) -> Dict[str, Path]:
+def add_sibling_repos_to_path(root: Optional[Path] = None) -> Dict[str, Path]:
     """Prepend the three solver package roots to ``sys.path``.
 
     The solver packages have unique top-level names:
@@ -41,4 +41,3 @@ def add_sibling_repos_to_path(root: Path | None = None) -> Dict[str, Path]:
         if text not in sys.path:
             sys.path.insert(0, text)
     return paths
-

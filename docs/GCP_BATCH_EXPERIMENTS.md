@@ -176,8 +176,10 @@ export REGION="europe-west1"
 export BUCKET="gs://${PROJECT_ID}-kuhn-head-to-head-results"
 export SA_EMAIL="kuhn-head-to-head-runner@${PROJECT_ID}.iam.gserviceaccount.com"
 
-# Git repository containing deep_cfr_v3/ or the four Kuhn directories.
-export SOURCE_REPO_URL="https://github.com/your-org/kuhn-poker-head-to-head.git"
+# This is the default value used by gcp/submit_batch_experiment.sh.
+# Set it explicitly if you want the terminal environment to be self-documenting
+# or if you need to point at a fork.
+export SOURCE_REPO_URL="https://github.com/lawrencewlcknight/kuhn_poker_head_to_head.git"
 export SOURCE_REF="main"
 
 # These are the default values used by gcp/submit_batch_experiment.sh.
@@ -416,6 +418,13 @@ new `--config` is supplied.
 ---
 
 ## 12. Troubleshooting
+
+If the job fails quickly with exit code `128`, inspect the Batch job description
+or Cloud Logging for the first `git clone` command. The failed smoke job
+`kuhn-h2h-smoke-20260613-232144` failed this way because `SOURCE_REPO_URL` was
+still set to the placeholder `https://github.com/your-org/kuhn-poker-head-to-head.git`.
+The helper now defaults to the real head-to-head repo URL and rejects obvious
+placeholder URLs before submitting a job.
 
 If the job fails with `ModuleNotFoundError` for `deep_cfr_poker`,
 `dream_poker`, or `escher_poker`, the Batch VM did not clone the sibling repos

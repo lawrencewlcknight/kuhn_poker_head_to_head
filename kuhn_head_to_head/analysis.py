@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 from scipy import stats
@@ -187,7 +187,7 @@ def _strength_rows(
     return strength_by_seed, aggregate, ranking
 
 
-def run_analysis(config: Dict[str, Any], run_dir: Path, training_summary: Sequence[Mapping[str, Any]] | None = None) -> Dict[str, Any]:
+def run_analysis(config: Dict[str, Any], run_dir: Path, training_summary: Optional[Sequence[Mapping[str, Any]]] = None) -> Dict[str, Any]:
     add_sibling_repos_to_path()
     import pyspiel
 
@@ -339,4 +339,3 @@ def run_analysis(config: Dict[str, Any], run_dir: Path, training_summary: Sequen
         "ranking": ranking,
         "metadata": metadata,
     }
-

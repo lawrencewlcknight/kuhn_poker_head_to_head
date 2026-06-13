@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Sequence
+from typing import Dict, List, Optional, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,8 +16,8 @@ def plot_heatmap(
     output_path: Path,
     *,
     cmap: str = "coolwarm",
-    vmin: float | None = None,
-    vmax: float | None = None,
+    vmin: Optional[float] = None,
+    vmax: Optional[float] = None,
     fmt: str = ".3f",
     colorbar_label: str = "Seat-averaged EV for entrant A",
 ) -> None:
@@ -42,7 +42,7 @@ def plot_heatmap(
     plt.close(fig)
 
 
-def plot_strength_bar(rows: list[dict], output_path: Path) -> None:
+def plot_strength_bar(rows: List[Dict], output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     labels = [str(row["agent"]) for row in rows]
     means = np.asarray([row["mean_EV_vs_all_opponents_mean"] for row in rows], dtype=float)
@@ -56,4 +56,3 @@ def plot_strength_bar(rows: list[dict], output_path: Path) -> None:
     fig.tight_layout()
     fig.savefig(output_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
-
