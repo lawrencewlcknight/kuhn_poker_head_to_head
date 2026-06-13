@@ -428,10 +428,12 @@ placeholder URLs before submitting a job.
 
 If the job fails during virtual environment creation with a message like
 `Unable to symlink ''`, this is a Debian Batch image `venv` issue. The helper
-now creates the environment outside the repo and falls back to
-`virtualenv --always-copy`. Bootstrap failures should upload `bootstrap.log` to
-the job's Cloud Storage output path when the head-to-head repo has already been
-cloned.
+now follows the working Kuhn DREAM pattern: install `python3.9-venv` and create
+the environment with `python3.9 -m venv --copies` under `/tmp`.
+
+If cleanup upload fails with a Google Cloud SDK or `gsutil` Python error, use
+the current helper. It uploads through `scripts/upload_outputs_to_gcs.py` from
+the experiment virtual environment, matching the robust Deep CFR upload path.
 
 If the job fails with `ModuleNotFoundError` for `deep_cfr_poker`,
 `dream_poker`, or `escher_poker`, the Batch VM did not clone the sibling repos

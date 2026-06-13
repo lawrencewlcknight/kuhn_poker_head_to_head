@@ -8,13 +8,13 @@ version = "0.1.0"
 description = "Head-to-head Kuhn poker comparison of Deep CFR, DREAM, and ESCHER thesis entrants."
 requires-python = ">=3.9"
 dependencies = [
-  "matplotlib",
-  "numpy",
-  "pandas",
-  "scipy",
-  "torch",
-  "tensorflow",
-  "open_spiel",
+  "matplotlib>=3.7,<4.0",
+  "numpy>=1.24,<2.0",
+  "pandas>=2.0,<3.0",
+  "scipy>=1.10,<2.0",
+  "torch>=2.0,<3.0",
+  "tensorflow>=2.15,<2.16",
+  "open_spiel>=1.4",
 ]
 
 [project.optional-dependencies]

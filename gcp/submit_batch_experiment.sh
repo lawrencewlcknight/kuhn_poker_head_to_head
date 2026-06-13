@@ -80,10 +80,12 @@ export JOB_JSON
 python3 <<'PY'
 import json
 import os
+import shlex
 
 job_json_path = os.environ["JOB_JSON"]
 job_name = os.environ["JOB_NAME"]
 experiment_command = os.environ["EXPERIMENT_COMMAND"]
+experiment_command_literal = shlex.quote(experiment_command)
 machine_type = os.environ["MACHINE_TYPE"]
 max_run_seconds = os.environ["MAX_RUN_SECONDS"]
 cpu_milli = int(os.environ["CPU_MILLI"])
@@ -102,16 +104,18 @@ head_to_head_subdir = os.environ["HEAD_TO_HEAD_SUBDIR"]
 boot_disk_gb = int(os.environ["BOOT_DISK_GB"])
 
 script = f"""#!/usr/bin/env bash
-set -euxo pipefail
+set -Euxo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 export PYTHONUNBUFFERED=1
+export PYTHONFAULTHANDLER=1
 export CUDA_VISIBLE_DEVICES=""
 export TF_CPP_MIN_LOG_LEVEL=3
 export ABSL_MIN_LOG_LEVEL=3
+EXPERIMENT_COMMAND={experiment_command_literal}
 
 echo "Starting job: {job_name}"
-echo "Experiment command: {experiment_command}"
+echo "Experiment command: $EXPERIMENT_COMMAND"
 
 if command -v sudo >/dev/null 2>&1; then
   SUDO=sudo
@@ -120,15 +124,14 @@ else
 fi
 
 $SUDO apt-get update
-$SUDO apt-get install -y git python3-pip python3-dev python3-venv rsync time
+$SUDO apt-get install -y git python3.9 python3.9-dev python3.9-venv python3-pip build-essential time
 
 WORKDIR=/workspace
 WORKSPACE_ROOT="$WORKDIR/deep_cfr_v3"
-VENV_DIR="$WORKDIR/venvs/{job_name}"
+VENV_DIR="/tmp/kuhn-h2h-venv"
 UPLOAD_DEST="{bucket}/{job_name}"
 BOOTSTRAP_LOG="$WORKDIR/{job_name}_bootstrap.log"
 mkdir -p "$WORKSPACE_ROOT"
-mkdir -p "$(dirname "$VENV_DIR")"
 
 exec > >(tee -a "$BOOTSTRAP_LOG") 2>&1
 
@@ -141,7 +144,11 @@ upload_outputs() {{
     cp "$BOOTSTRAP_LOG" outputs/bootstrap.log 2>/dev/null || true
     cp batch_run.log outputs/batch_run.log 2>/dev/null || true
     printf '{{"job_name": "{job_name}", "exit_status": %s}}\n' "$STATUS" > outputs/batch_status.json
-    gsutil -m cp -r outputs "$UPLOAD_DEST/"
+    if [ -x "$VENV_DIR/bin/python" ] && [ -f scripts/upload_outputs_to_gcs.py ]; then
+      "$VENV_DIR/bin/python" scripts/upload_outputs_to_gcs.py outputs "$UPLOAD_DEST/" || true
+    else
+      echo "Upload skipped because venv or uploader script is unavailable."
+    fi
   fi
   trap - EXIT
   exit "$STATUS"
@@ -160,24 +167,35 @@ find "$WORKSPACE_ROOT" -maxdepth 3 -type d | sort
 
 cd "{head_to_head_subdir}"
 
-if ! python3 -m venv "$VENV_DIR"; then
-  echo "python3 -m venv failed; falling back to virtualenv --always-copy"
-  rm -rf "$VENV_DIR"
-  python3 -m pip install --user --upgrade virtualenv
-  python3 -m virtualenv --always-copy "$VENV_DIR"
-fi
+export HOME="${{HOME:-/root}}"
+export TMPDIR="/tmp"
+export PIP_CACHE_DIR="/tmp/pip-cache"
+export MPLCONFIGDIR="/tmp/matplotlib-cache"
+export PATH="/usr/local/bin:$PATH"
+
+mkdir -p "$HOME" "$TMPDIR" "$PIP_CACHE_DIR" "$MPLCONFIGDIR"
+
+echo "Python version:"
+python3.9 --version
+
+echo "Machine information:"
+nproc || true
+free -h || true
+df -h || true
+lscpu | head -30 || true
+
+python3.9 -m venv --copies "$VENV_DIR"
 . "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip setuptools wheel
-python -m pip install -e .
+python -m pip install --no-cache-dir --no-build-isolation -r requirements.txt
+python -m pip install --no-cache-dir --no-build-isolation --no-deps -e .
+python -m pip check || true
 
 mkdir -p outputs/cloud
 
-set +e
-/usr/bin/time -v bash -lc '{experiment_command}' 2>&1 | tee batch_run.log
-STATUS="${{PIPESTATUS[0]}}"
-set -e
+bash -o pipefail -c "$EXPERIMENT_COMMAND" 2>&1 | tee batch_run.log
 
-exit "$STATUS"
+echo "Experiment completed successfully."
 """
 
 job = {
@@ -195,6 +213,7 @@ job = {
                     "cpuMilli": cpu_milli,
                     "memoryMib": memory_mib,
                 },
+                "maxRetryCount": 0,
                 "maxRunDuration": f"{max_run_seconds}s",
             },
             "taskCount": 1,
@@ -206,8 +225,10 @@ job = {
             {
                 "policy": {
                     "machineType": machine_type,
+                    "provisioningModel": "STANDARD",
                     "bootDisk": {
                         "sizeGb": boot_disk_gb,
+                        "type": "pd-balanced",
                     },
                 },
             },
