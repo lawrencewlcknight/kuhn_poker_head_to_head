@@ -242,6 +242,15 @@ The helper accepts:
   MEMORY_MIB
 ```
 
+If `MAX_RUN_SECONDS` is omitted, the helper now defaults to 24 hours
+(`86400`). The helper also uploads `outputs/` to Cloud Storage every 30 minutes
+by default, so long runs leave recoverable partial artifacts even if the Batch
+task is later interrupted. Override the upload interval if needed:
+
+```bash
+export PERIODIC_UPLOAD_SECONDS=900
+```
+
 Useful starting points:
 
 - `n2-standard-4`: `CPU_MILLI=4000`, `MEMORY_MIB=16000`
@@ -310,10 +319,14 @@ Run the default selected entrants on the common five-seed set:
     --seeds 1234,2025,31415,27182,16180 \
     --output-root outputs/cloud/thesis-5seed" \
   "n2-standard-8" \
-  "43200" \
+  "86400" \
   "8000" \
   "32000"
 ```
+
+The five-seed thesis run is substantially longer than the smoke test. On
+`n2-standard-8`, allow a full day; a 12-hour cap can terminate the run before
+the fourth or fifth seed has finished.
 
 For a ten-seed run:
 
@@ -324,7 +337,7 @@ For a ten-seed run:
     --seeds 1234,2025,31415,27182,16180,4242,8675309,7,99,1001 \
     --output-root outputs/cloud/thesis-10seed" \
   "n2-standard-16" \
-  "86400" \
+  "172800" \
   "16000" \
   "64000"
 ```
@@ -339,7 +352,7 @@ If you receive final configuration overrides, commit a JSON file such as
     --config configs/thesis_head_to_head.json \
     --output-root outputs/cloud/configured" \
   "n2-standard-8" \
-  "43200" \
+  "86400" \
   "8000" \
   "32000"
 ```
@@ -447,9 +460,12 @@ confirm that the VM can authenticate to Git before installing Python packages.
 If the job runs out of memory, increase the machine type and memory request,
 for example `n2-standard-16`, `CPU_MILLI=16000`, `MEMORY_MIB=64000`.
 
-If the job times out, increase `MAX_RUN_SECONDS`. The ESCHER entrant is usually
-the slowest component of the combined run.
+If the job fails with Batch status code `50005`, the task hit
+`maxRunDuration`. Increase `MAX_RUN_SECONDS`; for example, use `86400` for a
+five-seed run or `172800` for a ten-seed run. The ESCHER entrant is usually the
+slowest component of the combined run.
 
 If outputs are missing from Cloud Storage, inspect `batch_status.json` and
-`batch_run.log`. The helper uploads `outputs/` after the experiment command
-returns, even when the command exits non-zero.
+`batch_run.log`. The helper uploads `outputs/` periodically during the run and
+again after the experiment command returns, even when the command exits
+non-zero.

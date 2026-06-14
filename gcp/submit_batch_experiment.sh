@@ -20,6 +20,7 @@ set -euo pipefail
 #   ESCHER_REF                   default: SOURCE_REF
 #   HEAD_TO_HEAD_SUBDIR          default: kuhn_poker_head_to_head
 #   BOOT_DISK_GB                 default: 100
+#   PERIODIC_UPLOAD_SECONDS      default: 1800
 #
 # Usage:
 #   ./gcp/submit_batch_experiment.sh JOB_NAME "PYTHON_COMMAND" MACHINE_TYPE MAX_RUN_SECONDS CPU_MILLI MEMORY_MIB
@@ -27,7 +28,7 @@ set -euo pipefail
 JOB_NAME="$1"
 EXPERIMENT_COMMAND="$2"
 MACHINE_TYPE="${3:-n2-standard-8}"
-MAX_RUN_SECONDS="${4:-43200}"
+MAX_RUN_SECONDS="${4:-86400}"
 CPU_MILLI="${5:-8000}"
 MEMORY_MIB="${6:-32000}"
 
@@ -54,6 +55,7 @@ DREAM_REF="${DREAM_REF:-$SOURCE_REF}"
 ESCHER_REF="${ESCHER_REF:-$SOURCE_REF}"
 HEAD_TO_HEAD_SUBDIR="${HEAD_TO_HEAD_SUBDIR:-kuhn_poker_head_to_head}"
 BOOT_DISK_GB="${BOOT_DISK_GB:-100}"
+PERIODIC_UPLOAD_SECONDS="${PERIODIC_UPLOAD_SECONDS:-1800}"
 
 JOB_JSON="$(mktemp "/tmp/${JOB_NAME}.XXXXXX.json")"
 
@@ -75,6 +77,7 @@ export DREAM_REF
 export ESCHER_REF
 export HEAD_TO_HEAD_SUBDIR
 export BOOT_DISK_GB
+export PERIODIC_UPLOAD_SECONDS
 export JOB_JSON
 
 python3 <<'PY'
@@ -102,6 +105,7 @@ dream_ref = os.environ["DREAM_REF"]
 escher_ref = os.environ["ESCHER_REF"]
 head_to_head_subdir = os.environ["HEAD_TO_HEAD_SUBDIR"]
 boot_disk_gb = int(os.environ["BOOT_DISK_GB"])
+periodic_upload_seconds = int(os.environ["PERIODIC_UPLOAD_SECONDS"])
 
 script = f"""#!/usr/bin/env bash
 set -Euxo pipefail
@@ -131,6 +135,8 @@ WORKSPACE_ROOT="$WORKDIR/deep_cfr_v3"
 VENV_DIR="/tmp/kuhn-h2h-venv"
 UPLOAD_DEST="{bucket}/{job_name}"
 BOOTSTRAP_LOG="$WORKDIR/{job_name}_bootstrap.log"
+PERIODIC_UPLOAD_SECONDS="{periodic_upload_seconds}"
+PERIODIC_UPLOAD_PID=""
 mkdir -p "$WORKSPACE_ROOT"
 
 exec > >(tee -a "$BOOTSTRAP_LOG") 2>&1
@@ -138,6 +144,10 @@ exec > >(tee -a "$BOOTSTRAP_LOG") 2>&1
 upload_outputs() {{
   STATUS="$?"
   set +e
+  if [ -n "$PERIODIC_UPLOAD_PID" ]; then
+    kill "$PERIODIC_UPLOAD_PID" >/dev/null 2>&1 || true
+    wait "$PERIODIC_UPLOAD_PID" >/dev/null 2>&1 || true
+  fi
   if [ -d "$WORKSPACE_ROOT/{head_to_head_subdir}" ]; then
     cd "$WORKSPACE_ROOT/{head_to_head_subdir}"
     mkdir -p outputs
@@ -154,6 +164,21 @@ upload_outputs() {{
   exit "$STATUS"
 }}
 trap upload_outputs EXIT
+
+start_periodic_upload() {{
+  (
+    while true; do
+      sleep "$PERIODIC_UPLOAD_SECONDS"
+      if [ -d "$WORKSPACE_ROOT/{head_to_head_subdir}/outputs" ] && [ -x "$VENV_DIR/bin/python" ]; then
+        echo "Periodic upload at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        cd "$WORKSPACE_ROOT/{head_to_head_subdir}"
+        "$VENV_DIR/bin/python" scripts/upload_outputs_to_gcs.py outputs "$UPLOAD_DEST/" || true
+      fi
+    done
+  ) &
+  PERIODIC_UPLOAD_PID="$!"
+  echo "Started periodic output upload with PID $PERIODIC_UPLOAD_PID"
+}}
 
 cd "$WORKSPACE_ROOT"
 
@@ -192,6 +217,7 @@ python -m pip install --no-cache-dir --no-build-isolation --no-deps -e .
 python -m pip check || true
 
 mkdir -p outputs/cloud
+start_periodic_upload
 
 bash -o pipefail -c "$EXPERIMENT_COMMAND" 2>&1 | tee batch_run.log
 
