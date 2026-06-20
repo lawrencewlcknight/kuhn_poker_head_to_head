@@ -18,7 +18,7 @@ Path(os.environ["XDG_CACHE_HOME"]).mkdir(parents=True, exist_ok=True)
 Path(os.environ["MPLCONFIGDIR"]).mkdir(parents=True, exist_ok=True)
 
 from .analysis import run_analysis
-from .config import deep_merge, default_config
+from .config import EXPERIMENT_PRESETS, deep_merge, default_config
 from .io_utils import create_run_dir, read_json, write_json
 from .training import run_training
 
@@ -40,7 +40,7 @@ def _parse_seeds(value: Optional[str]):
 
 
 def build_config(args: argparse.Namespace) -> dict:
-    config = default_config(smoke=args.smoke)
+    config = default_config(smoke=args.smoke, preset=args.preset)
     if args.config:
         config = deep_merge(config, read_json(Path(args.config)))
     if args.seeds:
@@ -55,6 +55,15 @@ def build_config(args: argparse.Namespace) -> dict:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", nargs="?", default="all", choices=["all", "train", "analyse", "analyze"])
+    parser.add_argument(
+        "--preset",
+        choices=sorted(EXPERIMENT_PRESETS),
+        default="default",
+        help=(
+            "Named experiment preset. Use escher_exp13 to keep Deep CFR and "
+            "DREAM fixed while replacing ESCHER with Experiment 13."
+        ),
+    )
     parser.add_argument("--config", type=Path, default=None, help="Optional JSON config override.")
     parser.add_argument("--output-root", default=None)
     parser.add_argument("--run-dir", type=Path, default=None, help="Existing run directory for analyse-only.")

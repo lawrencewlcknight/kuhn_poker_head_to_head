@@ -5,6 +5,9 @@ Defaults mirror the selected Kuhn experiments:
 * Deep CFR: Experiment 9 target-processing ablation, standardized targets.
 * DREAM: baseline DREAM configuration.
 * ESCHER: Experiment 10 on-policy joint-regret treatment.
+
+The Experiment 13 preset keeps Deep CFR and DREAM fixed but replaces ESCHER
+with the author-budget multi-seed validation configuration from the ESCHER repo.
 """
 
 from __future__ import annotations
@@ -112,6 +115,51 @@ ESCHER_ON_POLICY_JOINT_REGRET = {
 }
 
 
+ESCHER_AUTHOR_BUDGET_MULTI_SEED = {
+    "algorithm": "escher",
+    "label": "ESCHER author-budget multi-seed",
+    "source_experiment": "kuhn_poker_escher_author_budget_multiseed",
+    "variant_id": "author_budget_no_is_uniform",
+    "variant_label": "Author-budget no-IS uniform fallback",
+    "variant_description": (
+        "Experiment 13 ESCHER configuration validating the strongest "
+        "Experiment 12 diagnostic setting over five seeds."
+    ),
+    "game_name": "kuhn_poker",
+    "num_iterations": 80,
+    "num_traversals": 500,
+    "num_val_fn_traversals": 500,
+    "check_exploitability_every": 10,
+    "policy_network_layers": [256, 128],
+    "regret_network_layers": [256, 128],
+    "value_network_layers": [256, 128],
+    "learning_rate": 1e-3,
+    "batch_size_regret": 256,
+    "batch_size_value": 256,
+    "batch_size_average_policy": 10_000,
+    "memory_capacity": int(5e4),
+    "policy_network_train_steps": 1000,
+    "regret_network_train_steps": 200,
+    "value_network_train_steps": 200,
+    "compute_exploitability": True,
+    "reinitialize_regret_networks": True,
+    "reinitialize_value_network": True,
+    "save_policy_weights": False,
+    "save_final_checkpoints": False,
+    "train_device": "cpu",
+    "infer_device": "cpu",
+    "verbose": False,
+    "exploitability_threshold": 0.05,
+    "average_policy_value_target": -1.0 / 18.0,
+    "importance_sampling": False,
+    "zero_regret_fallback": "uniform",
+    "all_actions": True,
+    "expl": 1.0,
+    "val_expl": 0.01,
+    "on_policy_joint_regret_updates": False,
+}
+
+
 DEFAULT_CONFIG = {
     "experiment_name": "kuhn_poker_algorithm_head_to_head",
     "game_name": "kuhn_poker",
@@ -126,6 +174,23 @@ DEFAULT_CONFIG = {
         "dream": DREAM_BASELINE,
         "escher": ESCHER_ON_POLICY_JOINT_REGRET,
     },
+}
+
+
+ESCHER_EXPERIMENT_13_CONFIG = {
+    **DEFAULT_CONFIG,
+    "experiment_name": "kuhn_poker_algorithm_head_to_head_escher_exp13",
+    "entrants": {
+        **DEFAULT_CONFIG["entrants"],
+        "escher": ESCHER_AUTHOR_BUDGET_MULTI_SEED,
+    },
+}
+
+
+EXPERIMENT_PRESETS = {
+    "default": DEFAULT_CONFIG,
+    "escher_exp13": ESCHER_EXPERIMENT_13_CONFIG,
+    "escher_author_budget": ESCHER_EXPERIMENT_13_CONFIG,
 }
 
 
@@ -191,9 +256,11 @@ def deep_merge(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any
     return result
 
 
-def default_config(*, smoke: bool = False) -> Dict[str, Any]:
-    config = deepcopy(DEFAULT_CONFIG)
+def default_config(*, smoke: bool = False, preset: str = "default") -> Dict[str, Any]:
+    if preset not in EXPERIMENT_PRESETS:
+        valid = ", ".join(sorted(EXPERIMENT_PRESETS))
+        raise KeyError(f"Unknown experiment preset {preset!r}; expected one of: {valid}")
+    config = deepcopy(EXPERIMENT_PRESETS[preset])
     if smoke:
         config = deep_merge(config, SMOKE_TEST_OVERRIDES)
     return config
-

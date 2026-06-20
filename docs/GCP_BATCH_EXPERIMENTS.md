@@ -342,6 +342,41 @@ For a ten-seed run:
   "64000"
 ```
 
+To rerun the comparison with ESCHER Experiment 13 while leaving Deep CFR and
+DREAM unchanged, use the `escher_exp13` preset:
+
+```bash
+./gcp/submit_batch_experiment.sh \
+  "kuhn-h2h-escher-exp13-5seed-$(date +%Y%m%d-%H%M%S)" \
+  "python -m kuhn_head_to_head.run all \
+    --preset escher_exp13 \
+    --seeds 1234,2025,31415,27182,16180 \
+    --output-root outputs/cloud/escher-exp13-5seed" \
+  "n2-standard-16" \
+  "172800" \
+  "16000" \
+  "64000"
+```
+
+The same run can be submitted through the committed JSON override:
+
+```bash
+./gcp/submit_batch_experiment.sh \
+  "kuhn-h2h-escher-exp13-5seed-$(date +%Y%m%d-%H%M%S)" \
+  "python -m kuhn_head_to_head.run all \
+    --config configs/escher_experiment_13_head_to_head.json \
+    --seeds 1234,2025,31415,27182,16180 \
+    --output-root outputs/cloud/escher-exp13-5seed" \
+  "n2-standard-16" \
+  "172800" \
+  "16000" \
+  "64000"
+```
+
+Experiment 13 uses larger ESCHER networks and substantially more supervised
+training per iteration than the original head-to-head entrant, so use at least
+`n2-standard-16` and allow up to 48 hours for the five-seed run.
+
 If you receive final configuration overrides, commit a JSON file such as
 `configs/thesis_head_to_head.json`, then pass it to the runner:
 

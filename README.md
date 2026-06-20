@@ -6,6 +6,10 @@ Lightweight thesis comparison repo for the selected Kuhn poker entrants:
 - DREAM, baseline configuration.
 - ESCHER, Experiment 10 on-policy joint-regret updates.
 
+It also includes an Experiment 13 rerun preset that keeps Deep CFR and DREAM
+fixed and replaces only ESCHER with the author-budget multi-seed configuration
+from the ESCHER repo.
+
 The repo imports the solver and snapshot code directly from the sibling Kuhn
 experiment repos under `deep_cfr_v3`. It trains one final entrant per algorithm
 and seed, saves lightweight playable policy snapshots, then runs the same exact
@@ -30,6 +34,24 @@ python -m kuhn_head_to_head.run all --smoke
 Optional JSON overrides can be supplied with `--config path/to/config.json`.
 The override is recursively merged into the default config, so you can replace
 only the fields that differ from the selected thesis defaults.
+
+To rerun the head-to-head comparison with ESCHER Experiment 13:
+
+```bash
+python -m kuhn_head_to_head.run all \
+  --preset escher_exp13 \
+  --seeds 1234,2025,31415,27182,16180 \
+  --output-root outputs/escher-exp13
+```
+
+The equivalent committed override is:
+
+```bash
+python -m kuhn_head_to_head.run all \
+  --config configs/escher_experiment_13_head_to_head.json \
+  --seeds 1234,2025,31415,27182,16180 \
+  --output-root outputs/escher-exp13
+```
 
 ## Google Cloud Batch
 
